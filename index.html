@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Komari Monitor</title>
+    <meta name="description" content="A simple server monitor tool." />
+    <script>!function(){var p=location.pathname,m=p.match(/^(.*?)\/(?:instance|node)\//);if(m??=p.match(/^\/(?:instance|node)\//)){var b=document.createElement('base');b.href=m[1]+'/';document.head.appendChild(b)}}()</script>
+    <script>!function(){function u(r){return r.json().then(function(d){return d&&d.status&&d.data?d.data:d})}var p=Promise.all([fetch('/api/public',{credentials:'same-origin'}).then(u),fetch('/api/nodes',{credentials:'same-origin'}).then(u),fetch('/api/me',{credentials:'same-origin'}).then(u).catch(function(){return{logged_in:false}})]).catch(function(){return null});p.then(function(d){window.__PD__=d});window.__PD__=p}()</script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

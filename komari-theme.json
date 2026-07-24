@@ -1,0 +1,145 @@
+{
+  "name": "Yuanshanayun",
+  "short": "yuanshan",
+  "description": "Yuanshanayun",
+  "version": "1.0.0",
+  "preview": "preview.jpg",
+  "author": "shan",
+  "url": "https://github.com/learnermake/komari-theme-yuanshan",
+  "configuration": {
+    "type": "managed",
+    "icon": "Settings",
+    "name": {
+      "zh-CN": "Yuanshanayun 设置",
+      "en": "Yuanshanayun Settings"
+    },
+    "data": [
+      { "name": { "zh-CN": "外观", "en": "Appearance" }, "type": "title" },
+      {
+        "key": "appearance",
+        "name": { "zh-CN": "主题模式", "en": "Theme mode" },
+        "type": "select",
+        "options": "system,light,dark",
+        "default": "system"
+      },
+      {
+        "key": "glass_enabled",
+        "name": { "zh-CN": "毛玻璃效果", "en": "Glass effect" },
+        "type": "switch",
+        "default": true,
+        "help": { "zh-CN": "卡片和面板的毛玻璃背景模糊效果。", "en": "Frosted glass blur effect on cards and panels." }
+      },
+      {
+        "key": "card_opacity",
+        "name": { "zh-CN": "卡片透明度", "en": "Card opacity" },
+        "type": "number",
+        "default": 88
+      },
+      { "name": { "zh-CN": "背景", "en": "Background" }, "type": "title" },
+      {
+        "key": "desktop_background_url",
+        "name": { "zh-CN": "电脑端背景", "en": "Desktop background" },
+        "type": "string",
+        "default": "",
+        "help": { "zh-CN": "支持图片、GIF、视频（mp4/webm/mov）等链接，或 /themes/yuanshan/... 静态资源路径。", "en": "Supports image, GIF, video (mp4/webm/mov) URLs, or /themes/yuanshan/... asset paths." }
+      },
+      {
+        "key": "mobile_background_url",
+        "name": { "zh-CN": "手机端背景", "en": "Mobile background" },
+        "type": "string",
+        "default": ""
+      },
+      {
+        "key": "data_update_interval",
+        "name": { "zh-CN": "数据刷新间隔(秒)", "en": "Data refresh interval(s)" },
+        "type": "number",
+        "default": 5,
+        "help": { "zh-CN": "实时数据请求间隔，最小1秒。", "en": "Realtime data request interval in seconds, min 1." }
+      },
+      { "name": { "zh-CN": "首页", "en": "Dashboard" }, "type": "title" },
+      {
+        "key": "show_overview",
+        "name": { "zh-CN": "显示总览", "en": "Show overview" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "overview_online",
+        "name": { "zh-CN": "总览：在线/离线", "en": "Overview: online/offline" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "overview_realtime",
+        "name": { "zh-CN": "总览：实时网速", "en": "Overview: realtime speed" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "overview_traffic",
+        "name": { "zh-CN": "总览：累计流量", "en": "Overview: traffic" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "overview_asset",
+        "name": { "zh-CN": "总览：资产概览", "en": "Overview: assets" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "sort_mode",
+        "name": { "zh-CN": "服务器排序", "en": "Node sorting" },
+        "type": "select",
+        "options": "default,name,realtime,traffic,price",
+        "default": "default"
+      },
+      { "name": { "zh-CN": "评级", "en": "Ratings" }, "type": "title" },
+      {
+        "key": "ratings_enabled",
+        "name": { "zh-CN": "启用总览评级", "en": "Enable overview ratings" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "rating_labels",
+        "name": { "zh-CN": "评级文字", "en": "Rating labels" },
+        "type": "string",
+        "default": "Quiet,Normal,Active,Peak"
+      },
+      { "name": { "zh-CN": "资产与汇率", "en": "Assets and exchange" }, "type": "title" },
+      {
+        "key": "asset_value_enabled",
+        "name": { "zh-CN": "启用资产价值", "en": "Enable asset value" },
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "visitor_asset_visible",
+        "name": { "zh-CN": "访客可见资产", "en": "Visitors can see assets" },
+        "type": "switch",
+        "default": false
+      },
+      {
+        "key": "target_currency",
+        "name": { "zh-CN": "显示货币", "en": "Display currency" },
+        "type": "select",
+        "options": "CNY,HKD,USD,EUR,GBP",
+        "default": "CNY"
+      },
+      {
+        "key": "fallback_source_currency",
+        "name": { "zh-CN": "默认源货币", "en": "Fallback source currency" },
+        "type": "select",
+        "options": "CNY,HKD,USD,EUR,GBP",
+        "default": "USD"
+      },
+      {
+        "key": "exchange_api",
+        "name": { "zh-CN": "汇率接口", "en": "Exchange API" },
+        "type": "string",
+        "default": "https://api.frankfurter.dev/v2/rates?base=USD"
+      }
+    ]
+  }
+}
