@@ -531,7 +531,6 @@ button {
   flex: 0 0 auto;
   vertical-align: middle;
 }
-}
 
 .region-strip small,
 .tag-row small {
@@ -1276,7 +1275,7 @@ button {
   background: rgba(var(--surface-rgb), 0.85);
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, opacity 180ms ease;
+  transition: border-color 160ms ease, opacity 160ms ease;
 }
 
 .ping-task-card.muted {

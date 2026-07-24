@@ -126,7 +126,24 @@ const messages = {
     footer: '页脚',
     footerEnabled: '显示页脚',
     footerText: '页脚文字',
-    powered: 'Powered by Komari Monitor.'
+    powered: 'Powered by Komari Monitor.',
+    pingMin: '最小',
+    pingMax: '最大',
+    pingAvg: '平均',
+    pingLatest: '最新',
+    pingP50: 'P50',
+    pingP99: 'P99',
+    pingVolatility: '波动率',
+    pingLoss: '丢包',
+    pingSamples: '样本',
+    pingUnit: ' ms',
+    pingLossUnit: '% 丢包',
+    remaining: '余',
+    permanent: '永久',
+    resource: '资源',
+    download: '下载',
+    upload2: '上传',
+    swap: 'Swap'
   },
   en: {
     dashboard: 'Overview',
@@ -252,7 +269,24 @@ const messages = {
     footer: 'Footer',
     footerEnabled: 'Show footer',
     footerText: 'Footer text',
-    powered: 'Powered by Komari Monitor.'
+    powered: 'Powered by Komari Monitor.',
+    pingMin: 'Min',
+    pingMax: 'Max',
+    pingAvg: 'Avg',
+    pingLatest: 'Latest',
+    pingP50: 'P50',
+    pingP99: 'P99',
+    pingVolatility: 'Volatility',
+    pingLoss: 'Loss',
+    pingSamples: 'Samples',
+    pingUnit: ' ms',
+    pingLossUnit: '% loss',
+    remaining: '',
+    permanent: 'Permanent',
+    resource: 'Resource',
+    download: 'Download',
+    upload2: 'Upload',
+    swap: 'Swap'
   }
 } as const;
 

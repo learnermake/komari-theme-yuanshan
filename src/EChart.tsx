@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import type { EChartsOption, EChartsType } from 'echarts';
+import type { EChartsCoreOption, EChartsType } from 'echarts/core';
 
 interface EChartProps {
-  option: EChartsOption;
+  option: EChartsCoreOption;
   theme: 'light' | 'dark';
   className?: string;
 }
 
-let echartsPromise: Promise<typeof import('echarts')> | null = null;
+let echartsPromise: Promise<typeof import('echarts/core')> | null = null;
 function getEcharts() {
-  if (!echartsPromise) echartsPromise = import('echarts');
+  if (!echartsPromise) echartsPromise = (async () => {
+    const core = await import('echarts/core');
+    const { LineChart } = await import('echarts/charts');
+    const { GridComponent, TooltipComponent, LegendComponent } = await import('echarts/components');
+    const { CanvasRenderer } = await import('echarts/renderers');
+    core.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+    return core;
+  })();
   return echartsPromise;
 }
 

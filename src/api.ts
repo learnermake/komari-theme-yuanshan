@@ -80,6 +80,7 @@ export async function getPingRecords(uuid: string, hours: number): Promise<PingR
 let rpcId = 1;
 
 export async function rpc<T>(method: string, params?: unknown): Promise<T> {
+  const id = rpcId++;
   const response = await fetch('/api/rpc2', {
     method: 'POST',
     credentials: 'same-origin',
@@ -87,7 +88,7 @@ export async function rpc<T>(method: string, params?: unknown): Promise<T> {
       Accept: 'application/json',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ jsonrpc: '2.0', id: rpcId++, method, params })
+    body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
   });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   const payload = (await response.json()) as { result?: T; error?: { message?: string; code?: number } };

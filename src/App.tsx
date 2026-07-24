@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { EChartsOption } from 'echarts';
+import type { EChartsCoreOption } from 'echarts/core';
 import {
   Activity,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  Clock,
   Cpu,
   Download,
   Eye,
@@ -14,7 +13,6 @@ import {
   Gauge,
   HardDrive,
   LayoutGrid,
-  List,
   Monitor,
   Moon,
   Save,
@@ -43,7 +41,6 @@ import {
 } from './api';
 import type {
   AssetStats,
-  BackgroundMode,
   CurrencyCode,
   FlatStatusRecord,
   LiveRuntime,
@@ -56,7 +53,6 @@ import type {
   RateTable,
   RawThemeSettings,
   SortMode,
-  ThemeMode,
   ThemeSettings
 } from './types';
 import {
@@ -97,6 +93,68 @@ const pingPeriods: Array<{ key: PingPeriod; label: MessageKey; hours: number }> 
   { key: '12h', label: 'twelveHours', hours: 12 },
   { key: '1d', label: 'oneDay', hours: 24 }
 ];
+
+const OS_IMAGES: Record<string, string> = {
+  alma: '/assets/os-logo/os-alma.svg',
+  alpine: '/assets/os-logo/os-alpine.webp',
+  arch: '/assets/os-logo/os-arch.svg',
+  armbian: '/assets/os-logo/os-armbian.svg',
+  centos: '/assets/os-logo/os-centos.svg',
+  debian: '/assets/os-logo/os-debian.svg',
+  fedora: '/assets/os-logo/os-fedora.svg',
+  freebsd: '/assets/os-logo/os-freebsd.svg',
+  gentoo: '/assets/os-logo/os-gentoo.svg',
+  kali: '/assets/os-logo/os-kail.svg',
+  macos: '/assets/os-logo/os-macos.svg',
+  manjaro: '/assets/os-logo/os-manjaro-.svg',
+  mint: '/assets/os-logo/os-mint.svg',
+  nixos: '/assets/os-logo/os-nix.svg',
+  opensuse: '/assets/os-logo/os-openSUSE.svg',
+  openwrt: '/assets/os-logo/os-openwrt.svg',
+  proxmox: '/assets/os-logo/os-proxmox.ico',
+  redhat: '/assets/os-logo/os-redhat.svg',
+  rocky: '/assets/os-logo/os-rocky.svg',
+  ubuntu: '/assets/os-logo/os-ubuntu.svg',
+  windows: '/assets/os-logo/os-windows.svg',
+  synology: '/assets/os-logo/os-synology.ico',
+  fnos: '/assets/os-logo/os-fnos.ico',
+  unraid: '/assets/os-logo/os-unraid.svg',
+  istore: '/assets/os-logo/os-istore.png',
+  qts: '/assets/os-logo/os-qnap.svg',
+  huawei: '/assets/os-logo/os-huawei.svg',
+  opencloud: '/assets/os-logo/os-OpenCloudOS.png',
+};
+
+const OS_KEYWORDS: Record<string, string[]> = {
+  alma: ['alma', 'almalinux'],
+  alpine: ['alpine'],
+  arch: ['arch'],
+  armbian: ['armbian'],
+  centos: ['centos'],
+  debian: ['debian', 'deb'],
+  fedora: ['fedora'],
+  freebsd: ['freebsd', 'bsd'],
+  gentoo: ['gentoo'],
+  kali: ['kali', 'kail'],
+  macos: ['macos', 'darwin', 'osx'],
+  manjaro: ['manjaro'],
+  mint: ['mint'],
+  nixos: ['nixos'],
+  opensuse: ['opensuse', 'suse'],
+  openwrt: ['openwrt', 'qwrt', 'immortalwrt'],
+  proxmox: ['proxmox'],
+  redhat: ['redhat', 'rhel'],
+  rocky: ['rocky'],
+  ubuntu: ['ubuntu', 'elementary'],
+  windows: ['windows', 'win'],
+  synology: ['synology', 'dsm'],
+  fnos: ['fnos'],
+  unraid: ['unraid'],
+  istore: ['istore', 'istoreos'],
+  qts: ['qts', 'qnap'],
+  huawei: ['huawei', 'euleros'],
+  opencloud: ['opencloud'],
+};
 
 function parseRoute(): Route {
   const match = window.location.pathname.match(/\/(?:node|instance)\/([^/?#]+)/);
@@ -150,7 +208,7 @@ export function App() {
   const [dataReady, setDataReady] = useState(false);
 
   const isMobile = useMediaQuery('(max-width: 720px)');
-  const assets = calculateAssetStats(nodes, settings, rateTable);
+  const assets = useMemo(() => calculateAssetStats(nodes, settings, rateTable), [nodes, settings, rateTable]);
   const canShowAssets = settings.asset_value_enabled && (me.logged_in || settings.visitor_asset_visible);
 
   useEffect(() => {
@@ -191,23 +249,15 @@ export function App() {
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     getExchangeRates(settings.exchange_api)
-      .then((rates) => {
-        if (!cancelled) setRateTable(rates);
-      })
-      .catch(() => {
-        if (!cancelled) setRateTable(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((rates) => { if (!cancelled) setRateTable(rates); })
+      .catch(() => { if (!cancelled) setRateTable(null); });
+    return () => { cancelled = true; };
   }, [settings.exchange_api]);
 
   useEffect(() => {
@@ -313,7 +363,9 @@ export function App() {
           <header className="topbar">
           <button className="brand brand-bare" onClick={() => navigate({ name: 'home' })} type="button">
             {settings.site_logo ? <img className="brand-logo" src={settings.site_logo} alt="" /> : null}
-            {publicInfo?.sitename ? <span><strong>{publicInfo.sitename}</strong></span> : null}
+            <span>
+              <strong>{settings.site_title || publicInfo?.sitename || ''}</strong>
+            </span>
           </button>
           <div className="topbar-actions">
             <div className="theme-toggle">
@@ -430,13 +482,12 @@ function Dashboard({
   t: Translator;
 }) {
   const [pingModalUuid, setPingModalUuid] = useState<string | null>(null);
-  const onlineCount = nodes.filter((node) => runtime[node.uuid]?.online).length;
-  const totalUp = nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.totalUp), 0);
-  const totalDown = nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.totalDown), 0);
-  const speedUp = nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.netUp), 0);
-  const speedDown = nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.netDown), 0);
-  const sorted = sortNodes(nodes, runtime, settings, assets, liveReady);
-  const listMode = settings.desktop_view === 'list';
+  const onlineCount = useMemo(() => nodes.filter((node) => runtime[node.uuid]?.online).length, [nodes, runtime]);
+  const totalUp = useMemo(() => nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.totalUp), 0), [nodes, runtime]);
+  const totalDown = useMemo(() => nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.totalDown), 0), [nodes, runtime]);
+  const speedUp = useMemo(() => nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.netUp), 0), [nodes, runtime]);
+  const speedDown = useMemo(() => nodes.reduce((sum, node) => sum + safeNumber(runtime[node.uuid]?.netDown), 0), [nodes, runtime]);
+  const sorted = useMemo(() => sortNodes(nodes, runtime, settings, assets, liveReady), [nodes, runtime, settings, assets, liveReady]);
 
   return (
     <main className="page-stack">
@@ -485,10 +536,10 @@ function Dashboard({
         <div>
           <h1>{t('nodes')}</h1>
         </div>
-        <span className="view-indicator">{listMode ? <List size={16} /> : <LayoutGrid size={16} />}</span>
+        <span className="view-indicator"><LayoutGrid size={16} /></span>
       </section>
 
-      <section className={classNames('node-collection', listMode && 'list-mode')}>
+      <section className="node-collection">
         {sorted.map((node) => (
           <NodeCard
             key={node.uuid}
@@ -621,9 +672,9 @@ function NodeCard({
         </div>
         <div className="nc-data-col nc-data-right">
           {canShowAssets && asset?.valid && (
-            <span className="nc-expiry-text">{formatMoney(asset.sourcePrice, asset.sourceCurrency)}{node.billing_cycle ? formatBillingCycle(node.billing_cycle) : ''}</span>
+            <span className="nc-expiry-text">{formatMoney(asset.sourcePrice, asset.sourceCurrency)}{formatBillingCycle(node.billing_cycle, t)}</span>
           )}
-          <span className="nc-expiry-text">{isLongTerm ? '长期' : daysLeft !== null ? `余${daysLeft}天` : '-'}</span>
+          <span className="nc-expiry-text">{isLongTerm ? t('longTerm') : daysLeft !== null ? `${t('remaining')}${daysLeft}${t('daysLeftSuffix')}` : '-'}</span>
         </div>
       </div>
 
@@ -721,93 +772,22 @@ function FlagBadge({ region, className }: { region?: string; className?: string 
 
 function OsIcon({ os }: { os?: string }) {
   const [failed, setFailed] = useState(false);
-  if (!os) return <Terminal size={14} className="os-icon" />;
-  if (failed) return <Terminal size={14} className="os-icon" />;
+  if (!os || failed) return <Terminal size={14} className="os-icon" />;
   const v = os.toLowerCase();
-  const osImages: Record<string, string> = {
-    alma: '/assets/os-logo/os-alma.svg',
-    alpine: '/assets/os-logo/os-alpine.webp',
-    arch: '/assets/os-logo/os-arch.svg',
-    armbian: '/assets/os-logo/os-armbian.svg',
-    centos: '/assets/os-logo/os-centos.svg',
-    debian: '/assets/os-logo/os-debian.svg',
-    fedora: '/assets/os-logo/os-fedora.svg',
-    freebsd: '/assets/os-logo/os-freebsd.svg',
-    gentoo: '/assets/os-logo/os-gentoo.svg',
-    kali: '/assets/os-logo/os-kail.svg',
-    macos: '/assets/os-logo/os-macos.svg',
-    manjaro: '/assets/os-logo/os-manjaro-.svg',
-    mint: '/assets/os-logo/os-mint.svg',
-    nixos: '/assets/os-logo/os-nix.svg',
-    opensuse: '/assets/os-logo/os-openSUSE.svg',
-    openwrt: '/assets/os-logo/os-openwrt.svg',
-    proxmox: '/assets/os-logo/os-proxmox.ico',
-    redhat: '/assets/os-logo/os-redhat.svg',
-    rocky: '/assets/os-logo/os-rocky.svg',
-    ubuntu: '/assets/os-logo/os-ubuntu.svg',
-    windows: '/assets/os-logo/os-windows.svg',
-    synology: '/assets/os-logo/os-synology.ico',
-    fnos: '/assets/os-logo/os-fnos.ico',
-    unraid: '/assets/os-logo/os-unraid.svg',
-    istore: '/assets/os-logo/os-istore.png',
-    qts: '/assets/os-logo/os-qnap.svg',
-    huawei: '/assets/os-logo/os-huawei.svg',
-    opencloud: '/assets/os-logo/os-OpenCloudOS.png',
-  };
-  const keywords: Record<string, string[]> = {
-    alma: ['alma', 'almalinux'],
-    alpine: ['alpine'],
-    arch: ['arch'],
-    armbian: ['armbian'],
-    centos: ['centos'],
-    debian: ['debian', 'deb'],
-    fedora: ['fedora'],
-    freebsd: ['freebsd', 'bsd'],
-    gentoo: ['gentoo'],
-    kali: ['kali', 'kail'],
-    macos: ['macos', 'darwin', 'osx'],
-    manjaro: ['manjaro'],
-    mint: ['mint'],
-    nixos: ['nixos'],
-    opensuse: ['opensuse', 'suse'],
-    openwrt: ['openwrt', 'qwrt', 'immortalwrt'],
-    proxmox: ['proxmox'],
-    redhat: ['redhat', 'rhel'],
-    rocky: ['rocky'],
-    ubuntu: ['ubuntu', 'elementary'],
-    windows: ['windows', 'win'],
-    synology: ['synology', 'dsm'],
-    fnos: ['fnos'],
-    unraid: ['unraid'],
-    istore: ['istore', 'istoreos'],
-    qts: ['qts', 'qnap'],
-    huawei: ['huawei', 'euleros'],
-    opencloud: ['opencloud'],
-  };
-  for (const [key, patterns] of Object.entries(keywords)) {
+  for (const [key, patterns] of Object.entries(OS_KEYWORDS)) {
     if (patterns.some((p) => new RegExp(`\\b${p}\\b`).test(v))) {
-      return <img className="os-icon" src={osImages[key]} alt={os} title={os} draggable="false" loading="lazy" onError={() => setFailed(true)} />;
+      return <img className="os-icon" src={OS_IMAGES[key]} alt={os} title={os} draggable="false" loading="lazy" onError={() => setFailed(true)} />;
     }
   }
   return <Terminal size={14} className="os-icon" />;
 }
 
-function formatBillingCycle(cycle?: number): string {
-  if (!cycle || cycle <= 0) return '/永久';
-  if (cycle >= 365) return '/年';
-  if (cycle >= 30) return '/月';
-  if (cycle >= 7) return '/周';
-  return '/日';
-}
-
-function MetricBar({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
-  return (
-    <span className="metric-bar">
-      <span className="metric-label">{icon}{label}</span>
-      <span className="bar-track"><span style={{ width: `${Math.min(100, Math.max(0, value))}%` }} /></span>
-      <span className="metric-value">{formatPercent(value)}</span>
-    </span>
-  );
+function formatBillingCycle(cycle: number | undefined, t: Translator): string {
+  if (!cycle || cycle <= 0) return `/${t('permanent')}`;
+  if (cycle >= 365) return '/y';
+  if (cycle >= 30) return '/mo';
+  if (cycle >= 7) return '/wk';
+  return '/d';
 }
 
 function NodeDetail({
@@ -890,9 +870,9 @@ function NodeDetail({
           <DetailLine label={t('gpu')} value={node.gpu_name || '-'} />
           <DetailLine label={t('system')} value={node.os || '-'} />
         </DetailInfoPanel>
-        <DetailInfoPanel title="资源" icon={<Activity size={16} />}>
+        <DetailInfoPanel title={t('resource')} icon={<Activity size={16} />}>
           <DetailLine label={t('memory')} value={`${formatBytes(runtimeCurrent?.ramUsed)} / ${formatBytes(runtimeCurrent?.ramTotal || node.mem_total)}`} />
-          <DetailLine label="Swap" value={`${formatBytes(runtimeCurrent?.swapUsed)} / ${formatBytes(runtimeCurrent?.swapTotal || node.swap_total)}`} />
+          <DetailLine label={t('swap')} value={`${formatBytes(runtimeCurrent?.swapUsed)} / ${formatBytes(runtimeCurrent?.swapTotal || node.swap_total)}`} />
           <DetailLine label={t('disk')} value={`${formatBytes(runtimeCurrent?.diskUsed)} / ${formatBytes(runtimeCurrent?.diskTotal || node.disk_total)}`} />
           <DetailLine label={t('load')} value={`${formatLoad(runtimeCurrent?.load1)} | ${formatLoad(runtimeCurrent?.load5)} | ${formatLoad(runtimeCurrent?.load15)}`} />
           <DetailLine label={t('uptime')} value={runtimeCurrent?.uptime ? formatUptime(runtimeCurrent.uptime) : '-'} />
@@ -934,16 +914,6 @@ function NodeDetail({
   );
 }
 
-function InfoItem({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="info-item">
-      <span>{icon}</span>
-      <small>{label}</small>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 function DetailInfoPanel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
     <article className="detail-panel">
@@ -982,11 +952,17 @@ function LoadChart({ uuid, theme, t }: { uuid: string; theme: 'light' | 'dark'; 
     };
     load();
     if (period === 'realtime') interval = window.setInterval(load, 15000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+    return () => { cancelled = true; window.clearInterval(interval); };
   }, [uuid, period]);
+
+  const latest = useMemo(() => latestRecord(records), [records]);
+
+  const cpuOption = useMemo(() => buildCpuChartOption(records), [records]);
+  const memOption = useMemo(() => buildMemoryChartOption(records), [records]);
+  const diskOption = useMemo(() => buildDiskChartOption(records), [records]);
+  const netOption = useMemo(() => buildNetworkOption(records), [records]);
+  const connOption = useMemo(() => buildConnectionsChartOption(records), [records]);
+  const procOption = useMemo(() => buildSingleMetricOption(records, t('process'), '#A78BFA', (r) => safeNumber(r.process), '', true), [records, t]);
 
   return (
     <section className="chart-section">
@@ -994,19 +970,19 @@ function LoadChart({ uuid, theme, t }: { uuid: string; theme: 'light' | 'dark'; 
       <Segmented items={loadPeriods.map((item) => ({ key: item.key, label: t(item.label) }))} active={period} onChange={(next) => setPeriod(next as LoadPeriod)} />
       {records.length ? (
         <div className="metric-chart-grid">
-          <MetricChartCard title="CPU" value={`${safeNumber(latestRecord(records)?.cpu).toFixed(1)}%`} option={buildCpuChartOption(records)} theme={theme} />
-          <MetricChartCard title={t('memory')} value={`${formatBytes(latestRecord(records)?.ram)} / ${formatBytes(latestRecord(records)?.ram_total)}`} option={buildMemoryChartOption(records)} theme={theme} />
-          <MetricChartCard title={t('disk')} value={`${formatBytes(latestRecord(records)?.disk)} / ${formatBytes(latestRecord(records)?.disk_total)}`} option={buildDiskChartOption(records)} theme={theme} />
-          <MetricChartCard title={t('network')} value={`${formatSpeed(latestRecord(records)?.net_out)} / ${formatSpeed(latestRecord(records)?.net_in)}`} option={buildNetworkOption(records)} theme={theme} />
-          <MetricChartCard title={t('connections')} value={`TCP:${latestRecord(records)?.connections ?? '-'} | UDP:${latestRecord(records)?.connections_udp ?? '-'}`} option={buildConnectionsChartOption(records)} theme={theme} />
-          <MetricChartCard title={t('process')} value={String(latestRecord(records)?.process ?? '-')} option={buildSingleMetricOption(records, t('process'), '#A78BFA', (record) => safeNumber(record.process), '', true)} theme={theme} />
+          <MetricChartCard title="CPU" value={`${safeNumber(latest?.cpu).toFixed(1)}%`} option={cpuOption} theme={theme} />
+          <MetricChartCard title={t('memory')} value={`${formatBytes(latest?.ram)} / ${formatBytes(latest?.ram_total)}`} option={memOption} theme={theme} />
+          <MetricChartCard title={t('disk')} value={`${formatBytes(latest?.disk)} / ${formatBytes(latest?.disk_total)}`} option={diskOption} theme={theme} />
+          <MetricChartCard title={t('network')} value={`${formatSpeed(latest?.net_out)} / ${formatSpeed(latest?.net_in)}`} option={netOption} theme={theme} />
+          <MetricChartCard title={t('connections')} value={`TCP:${latest?.connections ?? '-'} | UDP:${latest?.connections_udp ?? '-'}`} option={connOption} theme={theme} />
+          <MetricChartCard title={t('process')} value={String(latest?.process ?? '-')} option={procOption} theme={theme} />
         </div>
       ) : <div className="empty-chart">{t('noData')}</div>}
     </section>
   );
 }
 
-function MetricChartCard({ title, value, option, theme }: { title: string; value: string; option: EChartsOption; theme: 'light' | 'dark' }) {
+function MetricChartCard({ title, value, option, theme }: { title: string; value: string; option: EChartsCoreOption; theme: 'light' | 'dark' }) {
   return (
     <article className="metric-chart-card">
       <div className="metric-chart-head">
@@ -1016,34 +992,6 @@ function MetricChartCard({ title, value, option, theme }: { title: string; value
       <EChart option={option} theme={theme} className="mini-chart" />
     </article>
   );
-}
-
-function buildSingleMetricOption(records: FlatStatusRecord[], name: string, color: string, getValue: (record: FlatStatusRecord) => number, unit: string, showArea = true): EChartsOption {
-  const data = records.filter((record) => record.time);
-  return {
-    color: [color],
-    tooltip: { trigger: 'axis', valueFormatter: (value) => (typeof value === 'number' ? `${value.toFixed(1)}${unit}` : String(value)) },
-    grid: { left: 46, right: 16, top: 12, bottom: 28 },
-    xAxis: { type: 'category', data: data.map((r) => formatChartTime(r.time, data.length > 288)), axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false },
-    yAxis: { type: 'value', min: 0, max: unit === '%' ? 100 : undefined, axisLabel: { formatter: `{value}${unit}`, fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
-    series: [{ name, type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, areaStyle: showArea ? { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: `${color}40` }, { offset: 1, color: `${color}05` }] } } : undefined, data: data.map((record) => getValue(record)) }]
-  };
-}
-
-function buildNetworkOption(records: FlatStatusRecord[]): EChartsOption {
-  const data = records.filter((record) => record.time);
-  return {
-    color: ['#60A5FA', '#A78BFA'],
-    tooltip: { trigger: 'axis', valueFormatter: (value) => (typeof value === 'number' ? formatSpeed(value) : String(value)) },
-    legend: { data: ['↓ 下载', '↑ 上传'], bottom: 4, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 10 } },
-    grid: { left: 46, right: 16, top: 12, bottom: 48 },
-    xAxis: { type: 'category', data: data.map((r) => formatChartTime(r.time, data.length > 288)), axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false },
-    yAxis: { type: 'value', min: 0, axisLabel: { formatter: (value: number) => formatBytes(value), fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
-    series: [
-      { name: '↓ 下载', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((record) => safeNumber(record.net_in)) },
-      { name: '↑ 上传', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((record) => safeNumber(record.net_out)) }
-    ]
-  };
 }
 
 function formatChartTime(time: string | undefined, showDate: boolean): string {
@@ -1056,13 +1004,42 @@ function formatChartTime(time: string | undefined, showDate: boolean): string {
   return `${hh}:${mm}:${ss}`;
 }
 
-function makeCategoryAxis(records: FlatStatusRecord[]) {
+function makeXAxis(records: FlatStatusRecord[]) {
   const data = records.filter((r) => r.time);
   const showDate = data.length > 288;
   return { type: 'category' as const, data: data.map((r) => formatChartTime(r.time, showDate)), axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false };
 }
 
-function buildCpuChartOption(records: FlatStatusRecord[]): EChartsOption {
+function buildSingleMetricOption(records: FlatStatusRecord[], name: string, color: string, getValue: (record: FlatStatusRecord) => number, unit: string, showArea = true): EChartsCoreOption {
+  const data = records.filter((record) => record.time);
+  return {
+    color: [color],
+    tooltip: { trigger: 'axis', valueFormatter: (value: string | number) => (typeof value === 'number' ? `${value.toFixed(1)}${unit}` : String(value)) },
+    grid: { left: 46, right: 16, top: 12, bottom: 28 },
+    xAxis: makeXAxis(records),
+    yAxis: { type: 'value', min: 0, max: unit === '%' ? 100 : undefined, axisLabel: { formatter: `{value}${unit}`, fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [{ name, type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, areaStyle: showArea ? { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: `${color}40` }, { offset: 1, color: `${color}05` }] } } : undefined, data: data.map((record) => getValue(record)) }]
+  };
+}
+
+function buildNetworkOption(records: FlatStatusRecord[]): EChartsCoreOption {
+  const data = records.filter((record) => record.time);
+  const labels = data.map((r) => formatChartTime(r.time, data.length > 288));
+  return {
+    color: ['#60A5FA', '#A78BFA'],
+    tooltip: { trigger: 'axis', valueFormatter: (value: string | number) => (typeof value === 'number' ? formatSpeed(value) : String(value)) },
+    legend: { data: ['↓ download', '↑ upload'], bottom: 4, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 10 } },
+    grid: { left: 46, right: 16, top: 12, bottom: 48 },
+    xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false },
+    yAxis: { type: 'value', min: 0, axisLabel: { formatter: (value: number) => formatBytes(value), fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [
+      { name: '↓ download', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((record) => safeNumber(record.net_in)) },
+      { name: '↑ upload', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((record) => safeNumber(record.net_out)) }
+    ]
+  };
+}
+
+function buildCpuChartOption(records: FlatStatusRecord[]): EChartsCoreOption {
   const data = records.filter((r) => r.time);
   const labels = data.map((r) => formatChartTime(r.time, data.length > 288));
   return {
@@ -1088,12 +1065,12 @@ function buildCpuChartOption(records: FlatStatusRecord[]): EChartsOption {
     ],
     series: [
       { name: 'CPU', type: 'line', smooth: 0.6, showSymbol: false, yAxisIndex: 0, lineStyle: { width: 2.5, cap: 'round' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(255,107,107,0.25)' }, { offset: 1, color: 'rgba(255,107,107,0.02)' }] } }, data: data.map((r) => r.cpu) },
-      { name: '负载', type: 'line', smooth: 0.6, showSymbol: false, yAxisIndex: 1, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((r) => r.load) }
+      { name: 'Load', type: 'line', smooth: 0.6, showSymbol: false, yAxisIndex: 1, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((r) => r.load) }
     ]
   };
 }
 
-function buildDiskChartOption(records: FlatStatusRecord[]): EChartsOption {
+function buildDiskChartOption(records: FlatStatusRecord[]): EChartsCoreOption {
   const data = records.filter((r) => r.time);
   const labels = data.map((r) => formatChartTime(r.time, data.length > 288));
   return {
@@ -1112,11 +1089,11 @@ function buildDiskChartOption(records: FlatStatusRecord[]): EChartsOption {
     grid: { left: 46, right: 16, top: 12, bottom: 28 },
     xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false },
     yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
-    series: [{ name: '磁盘', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(78,205,196,0.25)' }, { offset: 1, color: 'rgba(78,205,196,0.02)' }] } }, data: data.map((r) => { const t = r.disk_total ?? 0; return t > 0 ? (r.disk ?? 0) / t * 100 : 0; }) }]
+    series: [{ name: 'Disk', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(78,205,196,0.25)' }, { offset: 1, color: 'rgba(78,205,196,0.02)' }] } }, data: data.map((r) => { const t = r.disk_total ?? 0; return t > 0 ? (r.disk ?? 0) / t * 100 : 0; }) }]
   };
 }
 
-function buildMemoryChartOption(records: FlatStatusRecord[]): EChartsOption {
+function buildMemoryChartOption(records: FlatStatusRecord[]): EChartsCoreOption {
   const data = records.filter((r) => r.time);
   const labels = data.map((r) => formatChartTime(r.time, data.length > 288));
   return {
@@ -1143,7 +1120,7 @@ function buildMemoryChartOption(records: FlatStatusRecord[]): EChartsOption {
   };
 }
 
-function buildConnectionsChartOption(records: FlatStatusRecord[]): EChartsOption {
+function buildConnectionsChartOption(records: FlatStatusRecord[]): EChartsCoreOption {
   const data = records.filter((r) => r.time);
   const labels = data.map((r) => formatChartTime(r.time, data.length > 288));
   return {
@@ -1156,26 +1133,6 @@ function buildConnectionsChartOption(records: FlatStatusRecord[]): EChartsOption
     series: [
       { name: 'TCP', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((r) => safeNumber(r.connections)) },
       { name: 'UDP', type: 'line', smooth: 0.6, showSymbol: false, lineStyle: { width: 2.5, cap: 'round' }, data: data.map((r) => safeNumber(r.connections_udp)) }
-    ]
-  };
-}
-
-function buildLoadOption(records: FlatStatusRecord[]): EChartsOption {
-  const data = records.filter((record) => record.time);
-  return {
-    color: ['#1d9a8a', '#2563eb', '#f59e0b', '#ef4444'],
-    tooltip: { trigger: 'axis', valueFormatter: (value) => (typeof value === 'number' ? value.toFixed(2) : String(value)) },
-    grid: { left: 42, right: 42, top: 20, bottom: 36 },
-    xAxis: { type: 'time' },
-    yAxis: [
-      { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed' } } },
-      { type: 'value', min: 0, splitLine: { show: false } }
-    ],
-    series: [
-      { name: 'CPU', type: 'line', smooth: true, symbol: 'none', areaStyle: { opacity: 0.1 }, data: data.map((record) => [record.time, safeNumber(record.cpu)]) },
-      { name: 'RAM', type: 'line', smooth: true, symbol: 'none', areaStyle: { opacity: 0.08 }, data: data.map((record) => [record.time, percent(record.ram, record.ram_total)]) },
-      { name: 'Disk', type: 'line', smooth: true, symbol: 'none', data: data.map((record) => [record.time, percent(record.disk, record.disk_total)]) },
-      { name: 'Load', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: data.map((record) => [record.time, safeNumber(record.load)]) }
     ]
   };
 }
@@ -1213,9 +1170,28 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
     return () => { cancelled = true; };
   }, [uuid, period]);
 
-  const tasks = normalizeTasks(data);
+  const tasks = useMemo(() => normalizeTasks(data), [data]);
   const records = data.records ?? [];
   const allVisible = tasks.length > 0 && tasks.every((task) => visible[task.id] !== false);
+
+  const taskStats = useMemo(() => {
+    const stats: Record<number, { min: number | null; max: number | null; avg: number | null; latest: number | null; p50: number | null; p99: number | null; loss: number; volatility: number; count: number }> = {};
+    for (const task of tasks) {
+      const taskRecords = records.filter((r) => r.task_id === task.id);
+      const validRecords = taskRecords.filter((r) => r.value >= 0);
+      const latest = validRecords.length ? validRecords[validRecords.length - 1].value : null;
+      const avg = validRecords.length ? validRecords.reduce((s, r) => s + r.value, 0) / validRecords.length : null;
+      const min = validRecords.length ? Math.min(...validRecords.map((r) => r.value)) : null;
+      const max = validRecords.length ? Math.max(...validRecords.map((r) => r.value)) : null;
+      const sorted = validRecords.map((r) => r.value).sort((a, b) => a - b);
+      const p50 = sorted.length ? sorted[Math.floor(sorted.length * 0.5)] : null;
+      const p99 = sorted.length ? sorted[Math.floor(sorted.length * 0.99)] : null;
+      const loss = taskRecords.length > 0 ? ((taskRecords.length - validRecords.length) / taskRecords.length * 100) : 0;
+      const volatility = p50 != null && p99 != null ? (p99 - p50) / Math.min(50, Math.max(10, p50)) : 0;
+      stats[task.id] = { min, max, avg, latest, p50, p99, loss, volatility, count: taskRecords.length };
+    }
+    return stats;
+  }, [tasks, records]);
 
   function handleToggleAll() {
     if (allVisible) {
@@ -1236,6 +1212,8 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
   const activeTasks = tasks.filter((task) => visible[task.id] !== false);
   const pingColors = ['#FF6B6B', '#4ECDC4', '#A78BFA', '#60A5FA', '#FFB347', '#F472B6', '#34D399', '#FB923C'];
 
+  const chartOption = useMemo(() => buildPingOption(records, activeTasks, tasks, smooth, pingColors), [records, activeTasks, tasks, smooth]);
+
   return (
     <section className="chart-section">
       <ChartHeader title={serverName ? `${serverName} - ${t('pingChart')}` : t('pingChart')} loading={loading} onClose={onClose} />
@@ -1246,16 +1224,8 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
         <div className="ping-task-grid">
           {tasks.map((task, idx) => {
             const isActive = visible[task.id] !== false;
-            const taskRecords = records.filter((r) => r.task_id === task.id);
-            const validRecords = taskRecords.filter((r) => r.value >= 0);
-            const latest = validRecords.length ? validRecords[validRecords.length - 1].value : null;
-            const avg = validRecords.length ? validRecords.reduce((s, r) => s + r.value, 0) / validRecords.length : null;
-            const min = validRecords.length ? Math.min(...validRecords.map((r) => r.value)) : null;
-            const max = validRecords.length ? Math.max(...validRecords.map((r) => r.value)) : null;
-            const p50 = validRecords.length ? (() => { const sorted = [...validRecords].map((r) => r.value).sort((a, b) => a - b); return sorted[Math.floor(sorted.length * 0.5)]; })() : null;
-            const p99 = validRecords.length ? (() => { const sorted = [...validRecords].map((r) => r.value).sort((a, b) => a - b); return sorted[Math.floor(sorted.length * 0.99)]; })() : null;
-            const loss = taskRecords.length > 0 ? ((taskRecords.length - validRecords.length) / taskRecords.length * 100) : 0;
-            const volatility = p50 != null && p99 != null ? (p99 - p50) / Math.min(50, Math.max(10, p50)) : 0;
+            const s = taskStats[task.id] || { min: null, max: null, avg: null, latest: null, p50: null, p99: null, loss: 0, volatility: 0, count: 0 };
+            const { loss, volatility, latest, count } = s;
             const lossColor = loss === 0 ? '#22c55e' : loss < 5 ? '#FFB347' : loss < 20 ? '#f97316' : '#FF6B6B';
             const latColor = latest != null ? (latest < 50 ? '#22c55e' : latest < 100 ? '#FFB347' : latest < 200 ? '#f97316' : '#FF6B6B') : '#888';
             const lineColor = pingColors[idx % pingColors.length];
@@ -1270,15 +1240,15 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
                       {hoveredTask === task.id && (
                         <div className="ping-task-tip">
                           <div className="ping-task-tip-grid">
-                            <span className="ping-task-tip-label">最小</span><span className="ping-task-tip-val">{min != null ? `${min.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">最大</span><span className="ping-task-tip-val">{max != null ? `${max.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">平均</span><span className="ping-task-tip-val">{avg != null ? `${avg.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">最新</span><span className="ping-task-tip-val">{latest != null ? `${latest.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">P50</span><span className="ping-task-tip-val">{p50 != null ? `${p50.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">P99</span><span className="ping-task-tip-val">{p99 != null ? `${p99.toFixed(0)} ms` : '-'}</span>
-                            <span className="ping-task-tip-label">波动率</span><span className="ping-task-tip-val">{volatility.toFixed(2)}</span>
-                            <span className="ping-task-tip-label">丢包</span><span className="ping-task-tip-val">{loss.toFixed(1)}%</span>
-                            <span className="ping-task-tip-label">样本</span><span className="ping-task-tip-val">{taskRecords.length}</span>
+                            <span className="ping-task-tip-label">{t('pingMin')}</span><span className="ping-task-tip-val">{s.min != null ? `${s.min.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingMax')}</span><span className="ping-task-tip-val">{s.max != null ? `${s.max.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingAvg')}</span><span className="ping-task-tip-val">{s.avg != null ? `${s.avg.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingLatest')}</span><span className="ping-task-tip-val">{latest != null ? `${latest.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingP50')}</span><span className="ping-task-tip-val">{s.p50 != null ? `${s.p50.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingP99')}</span><span className="ping-task-tip-val">{s.p99 != null ? `${s.p99.toFixed(0)}${t('pingUnit')}` : '-'}</span>
+                            <span className="ping-task-tip-label">{t('pingVolatility')}</span><span className="ping-task-tip-val">{volatility.toFixed(2)}</span>
+                            <span className="ping-task-tip-label">{t('pingLoss')}</span><span className="ping-task-tip-val">{loss.toFixed(1)}%</span>
+                            <span className="ping-task-tip-label">{t('pingSamples')}</span><span className="ping-task-tip-val">{count}</span>
                           </div>
                         </div>
                       )}
@@ -1287,9 +1257,9 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
                   <div className="ping-task-metrics">
                     <span className="ping-task-val" style={{ color: latColor }}>{latest != null ? `${latest.toFixed(0)} ms` : '-'}</span>
                     <span className="ping-task-sep">·</span>
-                    <span className="ping-task-loss" style={{ color: lossColor }}>{loss.toFixed(1)}% 丢包</span>
+                    <span className="ping-task-loss" style={{ color: lossColor }}>{loss.toFixed(1)}% {t('pingLoss')}</span>
                     <span className="ping-task-sep">·</span>
-                    <span className="ping-task-vol">{volatility.toFixed(1)} 波动</span>
+                    <span className="ping-task-vol">{volatility.toFixed(1)} {t('pingVolatility')}</span>
                   </div>
                 </div>
               </div>
@@ -1307,7 +1277,7 @@ function PingChart({ uuid, theme, t, serverName, onClose }: { uuid: string; them
         </label>
       </div>
       {records.length && tasks.length && activeTasks.length > 0 ? (
-        <EChart option={buildPingOption(records, activeTasks, tasks, smooth, pingColors)} theme={theme} className="chart" />
+        <EChart option={chartOption} theme={theme} className="chart" />
       ) : (
         <div className="empty-chart">{t('noData')}</div>
       )}
@@ -1324,13 +1294,13 @@ function normalizeTasks(data: PingRecordResponse): Array<{ id: number; name: str
   return tasks.sort((a, b) => a.id - b.id);
 }
 
-function buildPingOption(records: PingRecord[], activeTasks: Array<{ id: number; name: string }>, allTasks: Array<{ id: number; name: string }>, smooth: boolean, colors: string[]): EChartsOption {
+function buildPingOption(records: PingRecord[], activeTasks: Array<{ id: number; name: string }>, allTasks: Array<{ id: number; name: string }>, smooth: boolean, colors: string[]): EChartsCoreOption {
   const allTimes = [...new Set(records.filter((r) => r.time).map((r) => r.time))].sort();
   const showDate = allTimes.length > 288;
   const timeLabels = allTimes.map((t) => formatChartTime(t, showDate));
   return {
     color: colors,
-    tooltip: { trigger: 'axis', valueFormatter: (value) => (typeof value === 'number' ? `${value.toFixed(0)} ms` : '-') },
+    tooltip: { trigger: 'axis', valueFormatter: (value: string | number) => (typeof value === 'number' ? `${value.toFixed(0)} ms` : '-') },
     grid: { left: 46, right: 24, top: 20, bottom: 36 },
     xAxis: { type: 'category', data: timeLabels, axisLabel: { fontSize: 10, hideOverlap: true }, axisTick: { show: false }, boundaryGap: false },
     yAxis: { type: 'value', min: 0, axisLabel: { formatter: '{value} ms', fontSize: 10 }, splitLine: { lineStyle: { type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } },
@@ -1390,7 +1360,6 @@ function Segmented({ items, active, onChange }: { items: Array<{ key: string; la
 
 function SettingsModal({ settings, t, onClose, onSave, message }: { settings: ThemeSettings; t: Translator; onClose: () => void; onSave: (settings: ThemeSettings) => void; message: string }) {
   const [draft, setDraft] = useState(settings);
-  const [fileNotice, setFileNotice] = useState('');
 
   function update<K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -1409,7 +1378,7 @@ function SettingsModal({ settings, t, onClose, onSave, message }: { settings: Th
 
         <div className="settings-content">
           <SettingsGroup title={t('appearance')}>
-            <SelectField label={t('appearance')} value={draft.appearance} onChange={(value) => update('appearance', value as ThemeMode)} options={[
+            <SelectField label={t('appearance')} value={draft.appearance} onChange={(value) => update('appearance', value as ThemeSettings['appearance'])} options={[
               ['system', t('systemMode')], ['light', t('light')], ['dark', t('dark')]
             ]} />
             <SwitchField label={t('glassEffect')} checked={draft.glass_enabled} onChange={(value) => update('glass_enabled', value)} />
@@ -1464,14 +1433,6 @@ function SettingsModal({ settings, t, onClose, onSave, message }: { settings: Th
             <SelectField label={t('sorting')} value={draft.sort_mode} onChange={(value) => update('sort_mode', value as ThemeSettings['sort_mode'])} options={[
               ['default', t('defaultSort')], ['name', t('sortByName')], ['realtime', t('sortByRealtime')], ['traffic', t('sortByTraffic')], ['price', t('sortByPrice')]
             ]} />
-          </SettingsGroup>
-
-          <SettingsGroup title={t('cardMetrics')}>
-            <div className="checkbox-grid">
-              <SwitchField label={t('traffic')} checked={draft.show_traffic} onChange={(value) => update('show_traffic', value)} />
-              <SwitchField label={t('load')} checked={draft.show_load} onChange={(value) => update('show_load', value)} />
-              <SwitchField label={t('latency')} checked={draft.show_latency} onChange={(value) => update('show_latency', value)} />
-            </div>
           </SettingsGroup>
 
           <SettingsGroup title={t('ratings')}>
@@ -1550,7 +1511,7 @@ function AssetModal({ nodes, assets, settings, rateTable, t, onClose }: { nodes:
               return (
                 <div className="asset-grid-row" key={node.uuid}>
                   <span className="asset-node"><FlagBadge region={node.region} />{node.name}</span>
-                  <span>{formatMoney(asset.sourcePrice, asset.sourceCurrency)}{formatBillingCycle(node.billing_cycle)}</span>
+                  <span>{formatMoney(asset.sourcePrice, asset.sourceCurrency)}{formatBillingCycle(node.billing_cycle, t)}</span>
                   <span>{formatMoney(asset.remaining, settings.target_currency)}</span>
                   <span>{isLongTerm ? t('longTerm') : daysLeft !== null ? `${daysLeft}${t('daysLeftSuffix')}` : '-'}</span>
                 </div>
@@ -1618,5 +1579,3 @@ function SwitchField({ label, checked, onChange }: { label: string; checked: boo
     </label>
   );
 }
-
-
