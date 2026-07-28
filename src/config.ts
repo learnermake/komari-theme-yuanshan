@@ -1,4 +1,4 @@
-import type { CurrencyCode, DesktopView, RawThemeSettings, SortMode, ThemeMode, ThemeSettings } from './types';
+import type { BackgroundMode, CurrencyCode, DesktopView, RawThemeSettings, SortMode, ThemeMode, ThemeSettings } from './types';
 
 export const DEFAULT_EXCHANGE_API = 'https://api.frankfurter.dev/v2/rates?base=USD';
 
@@ -8,7 +8,9 @@ export const DEFAULT_SETTINGS: ThemeSettings = {
   card_opacity: 88,
   glass_enabled: true,
   desktop_background_url: '',
+  desktop_background_mode: 'auto',
   mobile_background_url: '',
+  mobile_background_mode: 'auto',
   data_update_interval: 5,
   show_overview: true,
   overview_online: true,
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: ThemeSettings = {
 
 const themeModes = ['system', 'light', 'dark'] as const;
 const desktopViews = ['cards', 'list'] as const;
+const backgroundModes = ['auto', 'image', 'video'] as const;
 const sortModes = ['default', 'name', 'realtime', 'traffic', 'price'] as const;
 const currencies = ['CNY', 'HKD', 'USD', 'EUR', 'GBP'] as const;
 
@@ -65,7 +68,13 @@ export function normalizeSettings(raw: RawThemeSettings | undefined | null): The
     card_opacity: asNumber(source.card_opacity, DEFAULT_SETTINGS.card_opacity, 45, 100),
     glass_enabled: asBool(source.glass_enabled, DEFAULT_SETTINGS.glass_enabled),
     desktop_background_url: asString(source.desktop_background_url, DEFAULT_SETTINGS.desktop_background_url),
+    desktop_background_mode: isOneOf(source.desktop_background_mode, backgroundModes)
+      ? (source.desktop_background_mode as BackgroundMode)
+      : DEFAULT_SETTINGS.desktop_background_mode,
     mobile_background_url: asString(source.mobile_background_url, DEFAULT_SETTINGS.mobile_background_url),
+    mobile_background_mode: isOneOf(source.mobile_background_mode, backgroundModes)
+      ? (source.mobile_background_mode as BackgroundMode)
+      : DEFAULT_SETTINGS.mobile_background_mode,
     data_update_interval: asNumber(source.data_update_interval, DEFAULT_SETTINGS.data_update_interval, 1, 300),
     show_overview: asBool(source.show_overview, DEFAULT_SETTINGS.show_overview),
     overview_online: asBool(source.overview_online, DEFAULT_SETTINGS.overview_online),

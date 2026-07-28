@@ -8,6 +8,7 @@
   --surface-strong: rgba(255, 255, 255, 0.96);
   --card-alpha: 0.88;
   --glass-alpha: 0.62;
+  --focus-ring: rgba(16, 137, 123, 0.8);
   --accent: #10897b;
   --accent-strong: #0b6f63;
   --accent-soft: rgba(16, 137, 123, 0.12);
@@ -28,6 +29,7 @@
   --surface-rgb: 23, 29, 27;
   --surface-strong: rgba(23, 29, 27, 0.96);
   --glass-alpha: 0.56;
+  --focus-ring: rgba(109, 215, 197, 0.88);
   --accent: #3fc0aa;
   --accent-strong: #6dd7c5;
   --accent-soft: rgba(63, 192, 170, 0.16);
@@ -67,6 +69,11 @@ textarea {
 
 button {
   color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
 }
 
 .ambient-background,
@@ -383,7 +390,7 @@ button {
 .notice {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(var(--surface-rgb), var(--glass-alpha));
+  background: rgba(var(--surface-rgb), var(--card-alpha));
   box-shadow: var(--shadow);
   backdrop-filter: blur(var(--glass-blur, 18px)) saturate(var(--glass-saturate, 1.18));
 }
@@ -476,7 +483,7 @@ button {
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(var(--surface-rgb), var(--glass-alpha));
+  background: rgba(var(--surface-rgb), var(--card-alpha));
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px) saturate(1.18);
 }
@@ -588,6 +595,7 @@ button {
 }
 
 .node-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -595,6 +603,17 @@ button {
   padding: 14px;
   text-align: left;
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.node-card-open {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
 }
 
 .node-card:hover {
@@ -635,6 +654,8 @@ button {
 }
 
 .nc-ping-btn {
+  position: relative;
+  z-index: 2;
   display: inline-grid;
   place-items: center;
   width: 24px;
@@ -660,7 +681,7 @@ button {
 }
 
 .ping-modal .chart-section {
-  background: rgba(var(--surface-rgb), var(--glass-alpha));
+  background: rgba(var(--surface-rgb), var(--card-alpha));
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px;
@@ -1043,7 +1064,7 @@ button {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(var(--surface-rgb), var(--glass-alpha));
+  background: rgba(var(--surface-rgb), var(--card-alpha));
 }
 
 .detail-panel h2 {
@@ -1272,7 +1293,7 @@ button {
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(var(--surface-rgb), 0.85);
+  background: rgba(var(--surface-rgb), var(--card-alpha));
   text-align: left;
   cursor: pointer;
   transition: border-color 160ms ease, opacity 160ms ease;
@@ -1285,7 +1306,6 @@ button {
 .ping-task-card:hover,
 .ping-task-card:focus-visible {
   border-color: var(--accent);
-  outline: none;
   opacity: 1;
 }
 
@@ -1773,6 +1793,15 @@ input[type='range'] {
 }
 
 @media (max-width: 720px) {
+  .overview-tile,
+  .node-card,
+  .detail-hero,
+  .info-item,
+  .chart-section,
+  .notice {
+    backdrop-filter: blur(min(var(--glass-blur, 18px), 10px)) saturate(var(--glass-saturate, 1.18));
+  }
+
   .app-shell {
     width: min(100% - 22px, 640px);
     padding-top: 12px;
@@ -1873,5 +1902,18 @@ input[type='range'] {
 
   .settings-footer {
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

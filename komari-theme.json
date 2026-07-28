@@ -2,7 +2,7 @@
   "name": "Yuanshanayun",
   "short": "yuanshan",
   "description": "Yuanshanayun",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "preview": "preview.jpg",
   "author": "shan",
   "url": "https://github.com/learnermake/komari-theme-yuanshan",
@@ -44,10 +44,25 @@
         "help": { "zh-CN": "支持图片、GIF、视频（mp4/webm/mov）等链接，或 /themes/yuanshan/... 静态资源路径。", "en": "Supports image, GIF, video (mp4/webm/mov) URLs, or /themes/yuanshan/... asset paths." }
       },
       {
+        "key": "desktop_background_mode",
+        "name": { "zh-CN": "电脑端背景类型", "en": "Desktop background type" },
+        "type": "select",
+        "options": "auto,video,image",
+        "default": "auto",
+        "help": { "zh-CN": "自动保持兼容模式；视频或图片可只加载对应资源。", "en": "Auto keeps compatibility mode; Video or Image loads only the selected resource type." }
+      },
+      {
         "key": "mobile_background_url",
         "name": { "zh-CN": "手机端背景", "en": "Mobile background" },
         "type": "string",
         "default": ""
+      },
+      {
+        "key": "mobile_background_mode",
+        "name": { "zh-CN": "手机端背景类型", "en": "Mobile background type" },
+        "type": "select",
+        "options": "auto,video,image",
+        "default": "auto"
       },
       {
         "key": "data_update_interval",

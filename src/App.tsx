@@ -53,6 +53,7 @@ import type {
   RateTable,
   RawThemeSettings,
   SortMode,
+  ThemeMode,
   ThemeSettings
 } from './types';
 import {
@@ -78,6 +79,8 @@ type Translator = ReturnType<typeof createTranslator>;
 type Route = { name: 'home' } | { name: 'node'; uuid: string };
 type LoadPeriod = 'realtime' | '4h' | '1d' | '7d' | '30d';
 type PingPeriod = '1h' | '6h' | '12h' | '1d';
+
+const VISITOR_APPEARANCE_KEY = 'komari-theme-visitor-appearance';
 
 const loadPeriods: Array<{ key: LoadPeriod; label: MessageKey; hours: number }> = [
   { key: 'realtime', label: 'realtime', hours: 0 },
@@ -188,6 +191,15 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
+function readVisitorAppearance(): ThemeMode | null {
+  try {
+    const appearance = window.localStorage.getItem(VISITOR_APPEARANCE_KEY);
+    return appearance === 'light' || appearance === 'dark' || appearance === 'system' ? appearance : null;
+  } catch {
+    return null;
+  }
+}
+
 export function App() {
   const language = useLanguage();
   const t = createTranslator(language);
@@ -206,10 +218,13 @@ export function App() {
   const [saveMessage, setSaveMessage] = useState('');
   const [loadingError, setLoadingError] = useState('');
   const [dataReady, setDataReady] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [visitorAppearance, setVisitorAppearance] = useState<ThemeMode | null>(() => readVisitorAppearance());
 
   const isMobile = useMediaQuery('(max-width: 720px)');
   const assets = useMemo(() => calculateAssetStats(nodes, settings, rateTable), [nodes, settings, rateTable]);
   const canShowAssets = settings.asset_value_enabled && (me.logged_in || settings.visitor_asset_visible);
+  const activeAppearance = me.logged_in ? settings.appearance : visitorAppearance ?? settings.appearance;
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -224,9 +239,13 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      setDataReady(false);
+      setLoadingError('');
       try {
         let publicData, nodeData, meData;
-        const pd = (window as unknown as Record<string, unknown>).__PD__;
+        // A server-provided preload promise cannot be retried once it rejects, so
+        // retries intentionally fall back to fresh API requests.
+        const pd = loadAttempt === 0 ? (window as unknown as Record<string, unknown>).__PD__ : undefined;
         if (pd && typeof pd === 'object' && typeof (pd as Promise<unknown>).then === 'function') {
           const resolved = await pd as [PublicInfo, NodeInfo[], MeInfo];
           if (cancelled) return;
@@ -250,7 +269,7 @@ export function App() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,15 +282,14 @@ export function App() {
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const applyTheme = () => {
-      const resolved = settings.appearance === 'system' ? (media.matches ? 'dark' : 'light') : settings.appearance;
+      const resolved = activeAppearance === 'system' ? (media.matches ? 'dark' : 'light') : activeAppearance;
       setResolvedTheme(resolved);
       document.documentElement.dataset.theme = resolved;
-      localStorage.setItem('appearance', settings.appearance);
     };
     applyTheme();
     media.addEventListener('change', applyTheme);
     return () => media.removeEventListener('change', applyTheme);
-  }, [settings.appearance]);
+  }, [activeAppearance]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--card-alpha', String(settings.card_opacity / 100));
@@ -338,7 +356,8 @@ export function App() {
     const path = next.name === 'home' ? basePath() : nodePath(next.uuid);
     window.history.pushState(null, '', path);
     setRoute(next);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    window.scrollTo({ top: 0, behavior });
   }
 
   async function handleSaveSettings(draft: ThemeSettings) {
@@ -355,10 +374,26 @@ export function App() {
     }
   }
 
+  function handleAppearanceChange(appearance: ThemeMode) {
+    if (me.logged_in) {
+      const next = { ...settings, appearance };
+      setSettings(next);
+      handleSaveSettings(next);
+      return;
+    }
+
+    setVisitorAppearance(appearance);
+    try {
+      window.localStorage.setItem(VISITOR_APPEARANCE_KEY, appearance);
+    } catch {
+      // Keep the selection for this session if storage is unavailable.
+    }
+  }
+
   return (
     <>
       <Background settings={settings} isMobile={isMobile} />
-      {dataReady && liveReady ? (
+      {dataReady ? (
         <div className="app-shell">
           <header className="topbar">
           <button className="brand brand-bare" onClick={() => navigate({ name: 'home' })} type="button">
@@ -369,9 +404,9 @@ export function App() {
           </button>
           <div className="topbar-actions">
             <div className="theme-toggle">
-              <button className={classNames('theme-toggle-btn', settings.appearance === 'light' && 'active')} type="button" title={t('light')} onClick={() => { const next = { ...settings, appearance: 'light' as const }; setSettings(next); handleSaveSettings(next); }}><Sun size={15} /></button>
-              <button className={classNames('theme-toggle-btn', settings.appearance === 'system' && 'active')} type="button" title={t('systemMode')} onClick={() => { const next = { ...settings, appearance: 'system' as const }; setSettings(next); handleSaveSettings(next); }}><Monitor size={15} /></button>
-              <button className={classNames('theme-toggle-btn', settings.appearance === 'dark' && 'active')} type="button" title={t('dark')} onClick={() => { const next = { ...settings, appearance: 'dark' as const }; setSettings(next); handleSaveSettings(next); }}><Moon size={15} /></button>
+              <button className={classNames('theme-toggle-btn', activeAppearance === 'light' && 'active')} type="button" title={t('light')} aria-label={t('light')} onClick={() => handleAppearanceChange('light')}><Sun size={15} /></button>
+              <button className={classNames('theme-toggle-btn', activeAppearance === 'system' && 'active')} type="button" title={t('systemMode')} aria-label={t('systemMode')} onClick={() => handleAppearanceChange('system')}><Monitor size={15} /></button>
+              <button className={classNames('theme-toggle-btn', activeAppearance === 'dark' && 'active')} type="button" title={t('dark')} aria-label={t('dark')} onClick={() => handleAppearanceChange('dark')}><Moon size={15} /></button>
             </div>
             {me.logged_in && (
               <button className="circle-button" type="button" title={t('settings')} onClick={() => setSettingsOpen(true)}>
@@ -381,8 +416,6 @@ export function App() {
             <a className="circle-button" href="/admin" target="_self" title={t('admin')}><SettingsIcon size={18} /></a>
           </div>
         </header>
-
-        {loadingError && <div className="notice danger">{loadingError}</div>}
 
         {route.name === 'home' ? (
           <Dashboard
@@ -417,6 +450,13 @@ export function App() {
 
         {settings.footer_enabled && <footer className="footer">{settings.footer_text || t('powered')}</footer>}
         </div>
+      ) : loadingError ? (
+        <div className="loading-screen">
+          <div className="notice danger" role="alert" aria-live="assertive">
+            <p>{loadingError}</p>
+            <button className="primary-button" type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>{t('refresh')}</button>
+          </div>
+        </div>
       ) : (
         <div className="loading-screen"><div className="loading-cat" /></div>
       )}
@@ -445,12 +485,15 @@ export function App() {
 }
 
 function Background({ settings, isMobile }: { settings: ThemeSettings; isMobile: boolean }) {
-  const url = isMobile ? settings.mobile_background_url : settings.desktop_background_url;
-  if (!url.trim()) return <div className="ambient-background" />;
+  const url = (isMobile ? settings.mobile_background_url : settings.desktop_background_url).trim();
+  const mode = isMobile ? settings.mobile_background_mode : settings.desktop_background_mode;
+  if (!url) return <div className="ambient-background" />;
   return (
     <div className="media-background">
-      <video src={url} autoPlay muted loop playsInline preload="auto" style={{ opacity: 0, transition: 'opacity 0.3s' }} onCanPlay={(e) => { (e.target as HTMLVideoElement).style.opacity = '1'; }} onError={(e) => { (e.target as HTMLVideoElement).style.display = 'none'; }} />
-      <div className="background-image" style={{ backgroundImage: `url("${url}")` }} />
+      {(mode === 'auto' || mode === 'video') && (
+        <video src={url} autoPlay muted loop playsInline preload="auto" style={{ opacity: 0, transition: 'opacity 0.3s' }} onCanPlay={(event) => { (event.target as HTMLVideoElement).style.opacity = '1'; }} onError={(event) => { (event.target as HTMLVideoElement).style.display = 'none'; }} />
+      )}
+      {(mode === 'auto' || mode === 'image') && <div className="background-image" style={{ backgroundImage: `url("${url}")` }} />}
       <div className="background-filter" />
     </div>
   );
@@ -629,9 +672,14 @@ function NodeCard({
   const expiryDate = node.expired_at ? new Date(node.expired_at) : null;
   const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / 86400000)) : null;
   const isLongTerm = !node.expired_at || node.billing_cycle === 0 || (daysLeft !== null && daysLeft > 36500);
-
   return (
-    <button className={classNames('node-card', online === false && 'is-offline')} type="button" onClick={onClick}>
+    <article className={classNames('node-card', online === false && 'is-offline')}>
+      <button
+        className="node-card-open"
+        type="button"
+        aria-label={`${t('details')}: ${node.name}`}
+        onClick={onClick}
+      />
       {/* Header: flag + name | OS icon */}
       <div className="nc-header">
         <span className="nc-name">
@@ -640,7 +688,7 @@ function NodeCard({
           <strong>{node.name}</strong>
         </span>
         <span className="nc-os">
-          <button className="nc-ping-btn" type="button" onClick={(e) => { e.stopPropagation(); onPing(); }} title={t('pingChart')}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button className="nc-ping-btn" type="button" onClick={onPing} title={t('pingChart')} aria-label={t('pingChart')}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
           <OsIcon os={node.os} />
         </span>
       </div>
@@ -692,7 +740,7 @@ function NodeCard({
         </div>
       )}
 
-    </button>
+    </article>
   );
 }
 
@@ -1386,10 +1434,16 @@ function SettingsModal({ settings, t, onClose, onSave, message }: { settings: Th
           </SettingsGroup>
 
           <SettingsGroup title={t('background')}>
+            <SelectField label={t('desktopBackgroundMode')} value={draft.desktop_background_mode} onChange={(value) => update('desktop_background_mode', value as ThemeSettings['desktop_background_mode'])} options={[
+              ['auto', t('auto')], ['video', t('video')], ['image', t('image')]
+            ]} />
             <label className="field-row wide-field">
               <span>{t('desktopBackground')}</span>
               <input value={draft.desktop_background_url} onChange={(event) => update('desktop_background_url', event.target.value)} placeholder="URL" />
             </label>
+            <SelectField label={t('mobileBackgroundMode')} value={draft.mobile_background_mode} onChange={(value) => update('mobile_background_mode', value as ThemeSettings['mobile_background_mode'])} options={[
+              ['auto', t('auto')], ['video', t('video')], ['image', t('image')]
+            ]} />
             <label className="field-row wide-field">
               <span>{t('mobileBackground')}</span>
               <input value={draft.mobile_background_url} onChange={(event) => update('mobile_background_url', event.target.value)} placeholder="URL" />

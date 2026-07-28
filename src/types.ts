@@ -1,7 +1,7 @@
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type DesktopView = 'cards' | 'list';
 export type SortMode = 'default' | 'name' | 'realtime' | 'traffic' | 'price';
-export type BackgroundMode = 'none' | 'image' | 'gif' | 'video' | 'random';
+export type BackgroundMode = 'auto' | 'image' | 'video';
 export type CurrencyCode = 'CNY' | 'HKD' | 'USD' | 'EUR' | 'GBP';
 export type Language = 'zh-CN' | 'en';
 
@@ -11,7 +11,9 @@ export interface ThemeSettings {
   card_opacity: number;
   glass_enabled: boolean;
   desktop_background_url: string;
+  desktop_background_mode: BackgroundMode;
   mobile_background_url: string;
+  mobile_background_mode: BackgroundMode;
   data_update_interval: number;
   show_overview: boolean;
   overview_online: boolean;
